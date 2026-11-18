@@ -77,6 +77,8 @@ app/
   dependencies.py            Builds the shared fallback manager and tracker
   model_fallback_system/     Providers, fallback manager, usage tracker, router
   lead_extraction_system/    Prompts, extractor, missing-info logic, router
+  rag_system                 
+  evaluation_system
 tests/                       Unit tests
 data/logs/                   Usage logs (JSONL)
 ```
@@ -93,3 +95,6 @@ data/logs/                   Usage logs (JSONL)
 | `CLAUDE_TIMEOUT_SECONDS` | `30` | Claude call timeout |
 | `PRIMARY_PROVIDER` / `FALLBACK_PROVIDER` | `ollama` / `claude` | Provider order |
 | `MAX_RETRIES_PER_PROVIDER` | `1` | Retries on timeout, connection error, 429 or 5xx |
+| `CHROMA_DIR` | None | data/ |
+| `QA_TOP_K` | None | 3 |
+| `QA_MAX_DISTANCE` | None | 0.34 |
