@@ -5,3 +5,4 @@ data/logs/*.jsonl
 scripts/
 .pytest_cache/
 data/
+reports/

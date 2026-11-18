@@ -1,0 +1,86 @@
+"""Problem 4: RAG pipeline logic with fake embedder / store / LLM."""
+import pytest
+
+from app.model_fallback_system.fallback_manager import FallbackResult
+from app.rag_system.doc_models import Hit
+from app.rag_system import REFUSAL, DocumentQA
+
+
+class FakeEmbedder:
+    async def embed_documents(self, texts):
+        return [[0.0] for _ in texts]
+
+    async def embed_query(self, text):
+        return [0.0]
+
+
+class FakeStore:
+    def __init__(self, hits):
+        self.hits, self.added = hits, None
+
+    def add_document(self, doc_id, filename, chunks, embeddings):
+        self.added = (doc_id, filename, len(chunks))
+
+    def query(self, embedding, top_k, doc_id=None):
+        return self.hits
+
+
+class FakeManager:
+    def __init__(self, text):
+        self.text, self.calls = text, 0
+
+    async def generate(self, prompt, system=None, **kw):
+        self.calls += 1
+        self.prompt = prompt
+        return FallbackResult(self.text, "ollama", "qwen", 12.0, 1, 1, False, "r", [])
+
+
+def hit(i, score, page=1):
+    return Hit(text=f"passage {i}", doc_id="d", filename="f.pdf", page=page, chunk_index=i, score=score)
+
+
+def make(hits, llm_text="x"):
+    mgr = FakeManager(llm_text)
+    qa = DocumentQA(FakeEmbedder(), FakeStore(hits), mgr, 1000, 150, 4, 0.45)
+    return qa, mgr
+
+
+@pytest.mark.asyncio
+async def test_refuses_without_calling_llm_when_nothing_relevant():
+    qa, mgr = make([hit(0, 0.2), hit(1, 0.3)])
+    r = await qa.ask("What is the CEO's salary?")
+    assert r["answered"] is False and r["answer"] == REFUSAL
+    assert r["reason"] == "no_relevant_passages" and r["sources"] == []
+    assert mgr.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_refuses_when_model_says_not_found():
+    qa, mgr = make([hit(0, 0.8)], llm_text="NOT_FOUND")
+    r = await qa.ask("Something not in the doc")
+    assert r["answered"] is False and r["reason"] == "model_declined" and mgr.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_answer_returns_only_cited_sources():
+    qa, _ = make([hit(0, 0.9, page=2), hit(1, 0.7, page=5), hit(2, 0.1)], llm_text="It is 42 [2].")
+    r = await qa.ask("What is it?")
+    assert r["answered"] is True
+    assert [s["rank"] for s in r["sources"]] == [2]
+    assert r["sources"][0]["page"] == 5
+    assert r["provider"] == "ollama"
+
+
+@pytest.mark.asyncio
+async def test_uncited_answer_falls_back_to_all_relevant_sources():
+    qa, _ = make([hit(0, 0.9), hit(1, 0.1)], llm_text="Plain answer.")
+    r = await qa.ask("q")
+    assert [s["rank"] for s in r["sources"]] == [1]
+
+
+@pytest.mark.asyncio
+async def test_ingest_txt():
+    qa, _ = make([])
+    info = await qa.ingest("notes.txt", b"This is a document with enough text to be chunked properly.")
+    assert info["chunks"] == 1 and info["pages"] is None and len(info["doc_id"]) == 12
+    assert qa.store.added[1] == "notes.txt"

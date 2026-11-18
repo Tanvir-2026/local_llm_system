@@ -12,6 +12,9 @@ dependencies = [
     "httpx",
     "anthropic",
     "python-dotenv",
+    "chromadb>=1.5.9",
+    "pypdf>=7.1.0",
+    "python-multipart>=0.0.34",
 ]
 
 [dependency-groups]

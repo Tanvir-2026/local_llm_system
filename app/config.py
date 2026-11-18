@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     retry_backoff_seconds: float = 0.5
     usage_log_path: str = "data/logs/usage.jsonl"
 
+    embed_model: str 
+    embed_timeout_seconds: float = 60.0
+    chroma_path: str 
+    chunk_size: int = 1000
+    chunk_overlap: int = 150
+    top_k: int = 4
+    min_relevance: float = 0.45  # cosine similarity; below this we refuse to answer
+    max_upload_mb: int = 20
 
 @lru_cache
 def get_settings() -> Settings:

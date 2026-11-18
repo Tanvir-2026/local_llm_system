@@ -4,13 +4,14 @@ from fastapi import FastAPI
 from app.core.logging import setup_logging
 from app.model_fallback_system.router import router as fallback_router
 from app.lead_extraction_system.router import router as leads_router
+from app.rag_system.router import router as documents_router
 
 setup_logging()
 
 app = FastAPI(title="AI Assignments", version="1.0")
 app.include_router(fallback_router)
 app.include_router(leads_router)
-
+app.include_router(documents_router)
 
 @app.get("/")
 async def root():
